@@ -1,0 +1,48 @@
+from pyspark.sql import SparkSession
+spark = SparkSession.builder \
+      .master("local[1]") \
+      .appName("Timberland_Analysis") \
+      .getOrCreate()
+df = spark.read.csv("/home/sushmi/airflow/inputfiles/timberland_stock.csv", header = True)
+df.createOrReplaceTempView("timber")
+df2 = spark.sql("select Date from timber order by High desc")
+#Mean of close
+df3 = spark.sql("select mean(close) from timber")
+
+#max and min of the Volume column
+df4 = spark.sql("select max(volume), min(volume) from timber")
+#days was the Close lower than 60 dollars
+df5 = spark.sql("select count(Date) as Date from timber where Close < 60")
+
+#percentage of the time was the High greater than 80 dollars
+df_a = spark.sql("select count(Date) as Date from timber where High > 80")
+df_a.createOrReplaceTempView("Date")
+df_b = spark.sql("select count(*) as total from timber")
+df_b.createOrReplaceTempView("total")
+df6 = spark.sql("select (s.Date/t.total) as High_greater_than_80 from Date s join total t ")
+
+#Pearson correlation between High and Volume
+from pyspark.sql.functions import corr
+df7 = spark.sql("SELECT corr(High, Volume) AS correlation FROM timber")
+
+#max High per year
+from pyspark.sql.functions import year
+df8 = df.withColumn("Year",year(df["Date"]))
+df8.createOrReplaceTempView("yeartable")
+df9 = spark.sql("select year,max(High) from yeartable group by year")
+
+#average Close for each Calendar Month
+from pyspark.sql.functions import month
+df10 = df.withColumn("month",month(df["Date"]))
+df10.createOrReplaceTempView("monthtable")
+df11 = spark.sql("select month, avg(close) from monthtable group by month order by month asc")
+
+# Save output file
+df2.write.csv('/home/sushmi/airflow/outputfiles/df2.csv', mode='overwrite', header=True)
+df3.write.csv('/home/suahmi/airflow/outputfiles/df3.csv', mode='overwrite', header=True)
+df4.write.csv('/home/sushmi/airflow/outputfiles/df4.csv', mode='overwrite', header=True)
+df5.write.csv('/home/sushmi/airflow/outputfiles/df5.csv', mode='overwrite', header=True)
+df6.write.csv('/home/sushmi/airflow/outputfiles/df6.csv', mode='overwrite', header=True)
+df7.write.csv('/home/sushmi/airflow/outputfiles/df7.csv', mode='overwrite', header=True)
+df9.write.csv('/home/sushmi/airflow/outputfiles/df9.csv', mode='overwrite', header=True)
+df11.write.csv('/home/sushmi/airflow/outputfiles/df11.csv', mode='overwrite', header=True)
